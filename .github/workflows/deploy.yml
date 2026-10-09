@@ -69,6 +69,28 @@ jobs:
       - name: Lưu service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/sa.json
 
+      - name: Kiểm tra service account có thuộc đúng project không
+        run: |
+          SA_JSON="$HOME/sa.json"
+          SA_PROJECT="$(python3 -c "import json; print(json.load(open('$SA_JSON')).get('project_id',''))" 2>/dev/null)"
+          if [ -z "$SA_PROJECT" ]; then
+            echo "❌ LỖI: FIREBASE_SERVICE_ACCOUNT không phải JSON hợp lệ."
+            echo "👉 Hãy mở lại file JSON đã tải từ Firebase console → chọn tất cả → copy,"
+            echo "   rồi update secret FIREBASE_SERVICE_ACCOUNT (dán đè toàn bộ)."
+            exit 1
+          fi
+          echo "Service account thuộc project: $SA_PROJECT"
+          if [ "$SA_PROJECT" = "${{ secrets.FIREBASE_PROJECT_ID }}" ]; then
+            echo "✅ Khớp với FIREBASE_PROJECT_ID."
+          else
+            echo "❌ LỆCH PROJECT: key này thuộc project '$SA_PROJECT',"
+            echo "   nhưng FIREBASE_PROJECT_ID lại là project khác → Firebase từ chối (lỗi 403)."
+            echo "👉 Cách sửa: vào Firebase console → mở ĐÚNG project của quán →"
+            echo "   Project settings → Service accounts → Generate new private key →"
+            echo "   update secret FIREBASE_SERVICE_ACCOUNT bằng file JSON mới."
+            exit 1
+          fi
+
       - name: Cài dependencies frontend
         run: cd frontend && npm ci
 
