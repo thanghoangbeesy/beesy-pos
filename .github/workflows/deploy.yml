@@ -1,0 +1,76 @@
+# Beesy POS — tự động build & deploy lên Firebase Hosting + Firestore rules/indexes.
+#
+# Cách dùng 100% trên điện thoại (không cần máy tính):
+#  1. Tạo repo mới trên github.com (điện thoại) — ví dụ tên "beesy-pos".
+#  2. Trong repo: Add file → Create new file → đặt tên ".github/workflows/deploy.yml"
+#     → dán toàn bộ nội dung file này → Commit.
+#  3. Trong repo: Add file → Upload files → chọn file app.zip (tải ở mục README
+#     "Triển khai 100% trên điện thoại") → Commit.
+#  4. Vào Settings → Secrets and variables → Actions → New repository secret,
+#     thêm các secret (lấy từ Firebase console trên điện thoại):
+#       FIREBASE_SERVICE_ACCOUNT  – toàn bộ JSON của service account key
+#         (Firebase console → Project settings → Service accounts → Generate new private key)
+#       FIREBASE_PROJECT_ID       – ID của Firebase project (vd: beesey-pos-123)
+#       VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID,
+#       VITE_FIREBASE_STORAGE_BUCKET, VITE_FIREBASE_MESSAGING_SENDER_ID, VITE_FIREBASE_APP_ID
+#         – 6 giá trị trong Firebase console → Project settings → Your apps → Web app
+#       VITE_GOOGLE_CLIENT_ID     – (tùy chọn) Client ID cho sao lưu Google Drive
+#  5. Vào tab Actions → Deploy to Firebase → Run workflow (hoặc push thêm 1 commit bất kỳ).
+#  6. Xong: mở URL của Firebase Hosting trên điện thoại → vào /setup để tạo chủ quán.
+#
+# Từ lần sau: muốn cập nhật code, chỉ cần upload file app.zip mới rồi chạy lại workflow.
+
+name: Deploy to Firebase
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Giải nén source (app.zip do người dùng upload từ điện thoại)
+        run: |
+          ls -la *.zip
+          unzip -o app.zip
+          rm -f app.zip
+
+      - name: Cài Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Lưu service account key
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/sa.json
+
+      - name: Cài dependencies frontend
+        run: cd frontend && npm ci
+
+      - name: Ghi file frontend/.env từ secrets
+        run: |
+          cd frontend
+          {
+            echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}"
+            echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}"
+            echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
+            echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}"
+            echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}"
+            echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}"
+            echo "VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}"
+          } > .env
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Deploy lên Firebase (Hosting + Firestore rules/indexes)
+        run: >
+          GOOGLE_APPLICATION_CREDENTIALS=$HOME/sa.json
+          npx -y firebase-tools@latest deploy
+          --only hosting,firestore:rules,firestore:indexes
+          --project ${{ secrets.FIREBASE_PROJECT_ID }}
+          --non-interactive
