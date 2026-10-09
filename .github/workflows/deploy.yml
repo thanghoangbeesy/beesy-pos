@@ -36,9 +36,30 @@ jobs:
 
       - name: Giải nén source (app.zip do người dùng upload từ điện thoại)
         run: |
-          ls -la *.zip
-          unzip -o app.zip
-          rm -f app.zip
+          if [ -f frontend/package.json ]; then
+            echo "Source đã có sẵn trong repo → bỏ qua giải nén."
+          else
+            ZIP="$(find . -path ./.git -prune -o -name '*.zip' -print | head -n 1)"
+            if [ -z "$ZIP" ]; then
+              echo "❌ LỖI: Không tìm thấy file app.zip trong repo."
+              echo ""
+              echo "👉 Cách sửa (làm trên điện thoại):"
+              echo "   1. Vào repo trên github.com, xem danh sách file:"
+              echo "      phải thấy file app.zip nằm ở thư mục gốc."
+              echo "   2. Nếu chưa có: bấm Add file → Upload files → chọn file app.zip"
+              echo "      đã tải về → Commit changes."
+              echo "   3. Vào tab Actions → Deploy to Firebase → Re-run jobs."
+              exit 1
+            fi
+            echo "Giải nén $ZIP ..."
+            unzip -o "$ZIP"
+            rm -f "$ZIP"
+            if [ ! -f frontend/package.json ]; then
+              echo "❌ LỖI: Đã giải nén nhưng không thấy source (thiếu frontend/package.json)."
+              echo "   File zip có thể không đúng — hãy tải lại app.zip từ link trong hướng dẫn."
+              exit 1
+            fi
+          fi
 
       - name: Cài Node.js
         uses: actions/setup-node@v4
