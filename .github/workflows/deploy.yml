@@ -43,6 +43,10 @@ jobs:
           if [ -n "$ZIP" ]; then
             echo "Giải nén $ZIP (ghi đè source cũ nếu có) ..."
             unzip -o "$ZIP"
+            if [ -d "ma-nguon-v6.28" ]; then
+              cp -rf ma-nguon-v6.28/* .
+              rm -rf ma-nguon-v6.28
+            fi
             rm -f "$ZIP"
           fi
           if [ ! -f frontend/package.json ]; then
