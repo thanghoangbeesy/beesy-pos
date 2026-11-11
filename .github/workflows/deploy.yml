@@ -86,13 +86,7 @@ jobs:
           fi
 
       - name: Cài dependencies frontend
-        run: |
-          cd frontend
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: cd frontend && npm ci
 
       - name: Ghi file frontend/.env từ secrets
         run: |
